@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Tank Game Final</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            color: white;
+            font-family: Arial;
+
+            background: url("background.jpg") no-repeat center center;
+            background-size: cover;
+        }
+
+        /* Overlay */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /* Canvas */
+        canvas {
+            position: relative;
+            z-index: 2;
+            display: block;
+        }
+
+        /* Score UI */
+        #scoreBox {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+
+            z-index: 3;
+
+            display: flex;
+            align-items: center;
+            gap: 10px;
+
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px 15px;
+            border-radius: 12px;
+
+            backdrop-filter: blur(4px);
+        }
+
+        #scoreBox img {
+            width: 30px;
+            height: 30px;
+        }
+
+        #scoreText {
+            font-size: 20px;
+            font-weight: bold;
+            color: #fff;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- UI Score -->
+    <div id="scoreBox">
+        <img src="badge.png" alt="score icon">
+        <span id="scoreText">0</span>
+    </div>
+
+    <div class="overlay"></div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // Load gambar
+        const tankImg = new Image();
+        tankImg.src = "main.PNG";
+
+        const fireImg = new Image();
+        fireImg.src = "fire.jpg";
+
+        const monsterImg = new Image();
+        monsterImg.src = "enemy.jpg";
+
+        // Player
+        let tank = {
+            x: canvas.width / 2,
+            y: canvas.height - 120,
+            width: 150,
+            height: 150,
+            speed: 20
+        };
+
+        // Kontrol
+        let keys = {};
+
+        // Peluru
+        let bullets = [];
+        let bulletSpeed = 15;
+
+        // Monster
+        let monsters = [];
+        let monsterSpeed = 10;
+
+        // Score
+        let score = 0;
+
+        // INPUT
+        document.addEventListener("keydown", (e) => {
+            keys[e.key.toLowerCase()] = true;
+        });
+
+        document.addEventListener("keyup", (e) => {
+            keys[e.key.toLowerCase()] = false;
+        });
+
+        // 🔫 AUTO FIRE
+        setInterval(() => {
+            bullets.push({
+                x: tank.x + tank.width / 2 - 10,
+                y: tank.y,
+                width: 40,
+                height: 50
+            });
+        }, 100);
+
+        // 👾 SPAWN MONSTER
+        setInterval(() => {
+            monsters.push({
+                x: Math.random() * (canvas.width - 50),
+                y: -50,
+                width: 100,
+                height: 100
+            });
+        }, 1000);
+
+        // UPDATE
+        function update() {
+
+            // Gerak tank
+            if (keys["w"]) tank.y -= tank.speed;
+            if (keys["s"]) tank.y += tank.speed;
+            if (keys["a"]) tank.x -= tank.speed;
+            if (keys["d"]) tank.x += tank.speed;
+
+            // Batas layar
+            if (tank.x < 0) tank.x = 0;
+            if (tank.y < 0) tank.y = 0;
+            if (tank.x + tank.width > canvas.width)
+                tank.x = canvas.width - tank.width;
+            if (tank.y + tank.height > canvas.height)
+                tank.y = canvas.height - tank.height;
+
+            // Update peluru (loop mundur)
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                bullets[i].y -= bulletSpeed;
+
+                if (bullets[i].y < -bullets[i].height) {
+                    bullets.splice(i, 1);
+                }
+            }
+
+            // Update monster (loop mundur)
+            for (let i = monsters.length - 1; i >= 0; i--) {
+                let m = monsters[i];
+                m.y += monsterSpeed;
+
+                // Kena tank
+                if (
+                    tank.x < m.x + m.width &&
+                    tank.x + tank.width > m.x &&
+                    tank.y < m.y + m.height &&
+                    tank.y + tank.height > m.y
+                ) {
+                    monsters.splice(i, 1);
+                    score--;
+
+                    updateScore();
+
+                    if (score < 0) {
+                        alert("Game Over!");
+                        location.reload();
+                    }
+                }
+
+                // Lewat bawah
+                if (m.y > canvas.height) {
+                    monsters.splice(i, 1);
+                }
+            }
+
+            // 💥 Collision peluru vs monster (AMAN)
+            for (let bi = bullets.length - 1; bi >= 0; bi--) {
+                for (let mi = monsters.length - 1; mi >= 0; mi--) {
+
+                    let b = bullets[bi];
+                    let m = monsters[mi];
+
+                    if (
+                        b.x < m.x + m.width &&
+                        b.x + b.width > m.x &&
+                        b.y < m.y + m.height &&
+                        b.y + b.height > m.y
+                    ) {
+                        bullets.splice(bi, 1);
+                        monsters.splice(mi, 1);
+                        score++;
+
+                        updateScore();
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Update score UI
+        function updateScore() {
+            document.getElementById("scoreText").innerText = score;
+        }
+
+        // DRAW
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Tank
+            ctx.drawImage(tankImg, tank.x, tank.y, tank.width, tank.height);
+
+            // Peluru
+            bullets.forEach((b) => {
+                ctx.drawImage(fireImg, b.x, b.y, b.width, b.height);
+            });
+
+            // Monster
+            monsters.forEach((m) => {
+                ctx.drawImage(monsterImg, m.x, m.y, m.width, m.height);
+            });
+        }
+
+        // LOOP
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // START
+        let loaded = 0;
+        function startGame() {
+            loaded++;
+            if (loaded === 3) gameLoop();
+        }
+
+        tankImg.onload = startGame;
+        fireImg.onload = startGame;
+        monsterImg.onload = startGame;
+
+    </script>
+
+</body>
+
+</html>
